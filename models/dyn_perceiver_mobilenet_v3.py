@@ -21,7 +21,7 @@ import numpy as np
 class DynPerceiver(nn.Module):
     def __init__(self,
                 input_size: int=224,
-                num_classes:int=100,
+                num_classes:int=1000,
                 cnn_arch: str="mobilenet_v3_large",
                 num_SA_heads: list=[1,2,4,8],
                 num_latents: int=32,
