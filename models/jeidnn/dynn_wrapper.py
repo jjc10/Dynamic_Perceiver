@@ -47,7 +47,7 @@ class DynnWrapper(torch.nn.Module):
         print('Successfully froze network: from {} to {} trainable params.'.format(
             total_num_parameters, num_trainable_params))
 
-    def set_cost_per_exit(self, mult_add_at_exits: list[float] = [0.097629792, 0.181669488, 0.205988448, 0.264681648]):
+    def set_cost_per_exit(self, mult_add_at_exits = [0.097629792, 0.181669488, 0.205988448, 0.264681648]):
         normalized_cost = torch.tensor(mult_add_at_exits) / mult_add_at_exits[-1]
         self.mult_add_at_exits = (torch.tensor(mult_add_at_exits) * 1e9).tolist()
         self.normalized_cost_per_exit = normalized_cost.tolist()
