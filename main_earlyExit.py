@@ -265,8 +265,10 @@ def train_jeidnn(wrapper, args, criterion, data_loader_train, data_loader_val, d
                            data_loader_train, epoch=epoch, training_phase=TrainingPhase.CLASSIFIER,
                            bilevel_batch_count=200)
         val_metrics_dict, new_best_acc, _ = evaluate(best_acc, args, learning_helper, device, data_loader_val, epoch, mode='val', experiment_name='potato')
+        if new_best_acc > best_acc:
+            best_acc = new_best_acc
         set_from_validation(learning_helper, val_metrics_dict, account_subsequent=True)
-        test_metrics_dict, new_best_acc, _ = evaluate(best_acc, args, learning_helper, device, data_loader_test, epoch, mode='test', experiment_name='potato')
+        test_metrics_dict, _, _ = evaluate(best_acc, args, learning_helper, device, data_loader_test, epoch, mode='test', experiment_name='potato')
         scheduler.step()
 
 def main(args):
