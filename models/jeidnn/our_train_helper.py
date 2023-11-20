@@ -121,7 +121,7 @@ def evaluate(best_acc, args, helper: LearningHelper, device, init_loader, epoch,
             'epoch': epoch,
         }
         checkpoint_path = os.path.join(get_path_to_project_root(), 'jeidnn_exploration_checkpoint')
-        this_run_checkpoint_path = os.path.join(checkpoint_path, f'checkpoint_cifar100_{args.ce_ic_tradeoff}')
+        this_run_checkpoint_path = os.path.join(checkpoint_path, f'checkpoint_{args.data_set}_{args.ce_ic_tradeoff}')
         if not os.path.isdir(this_run_checkpoint_path):
             os.mkdir(this_run_checkpoint_path)
         torch.save(
