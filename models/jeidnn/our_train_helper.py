@@ -69,10 +69,7 @@ def train_single_epoch(args, helper: LearningHelper, device, train_loader, epoch
 def evaluate(best_acc, args, helper: LearningHelper, device, init_loader, epoch, mode: str, experiment_name: str, store_results=False):
     helper.net.eval()
     metrics_dict = {}
-    if mode == 'test': # we should split the data and combine at the end
-        loaders = 12 #split_dataloader_in_n(init_loader, n=10)
-    else:
-        loaders = [init_loader]
+    loaders = [init_loader]
     metrics_dicts = []
     log_dicts_of_trials = {}
     average_trials_log_dict = {}
