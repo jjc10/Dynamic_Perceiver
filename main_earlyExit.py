@@ -263,7 +263,7 @@ def train_jeidnn(wrapper, args, criterion, data_loader_train, data_loader_val, d
     for epoch in range(args.bilevel_epochs):
         train_single_epoch(args, learning_helper, device,
                            data_loader_train, epoch=epoch, training_phase=TrainingPhase.CLASSIFIER,
-                           bilevel_batch_count=1000)
+                           bilevel_batch_count=args.bilevel_switch)
         val_metrics_dict, new_best_acc, _ = evaluate(best_acc, args, learning_helper, device, data_loader_val, epoch, mode='val', experiment_name='potato')
         if new_best_acc > best_acc:
             best_acc = new_best_acc

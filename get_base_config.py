@@ -2,7 +2,7 @@ class Namespace:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
-def get_args(EPOCH, BATCH_SIZE, OUTPUT_DIR,JEIDNN, CE_IC, LR_JEIDNN):
+def get_args(EPOCH, BATCH_SIZE, OUTPUT_DIR,JEIDNN, CE_IC, LR_JEIDNN, BILEVEL):
     args = Namespace(batch_size=BATCH_SIZE, 
     epochs=EPOCH,
     update_freq=1,
@@ -12,6 +12,7 @@ def get_args(EPOCH, BATCH_SIZE, OUTPUT_DIR,JEIDNN, CE_IC, LR_JEIDNN):
     drop_path=0, 
     dropout=0, 
     input_size=224, 
+    bilevel_switch=BILEVEL,
     num_latent_channels=None, 
     SA_widening_factor=4, 
     num_SA_heads=None, 
@@ -64,8 +65,8 @@ def get_args(EPOCH, BATCH_SIZE, OUTPUT_DIR,JEIDNN, CE_IC, LR_JEIDNN):
     head_init_scale=1.0, 
     model_key='model|module|state_dict_ema', 
     model_prefix='', 
-    #data_path='/workspace/DyLLM/dynn/data/ILSVRC/Data/CLS-LOC', 
-    data_path='/workspace/dynn/data/ILSVRC/Data/CLS-LOC', 
+    data_path='/workspace/DyLLM/dynn/data/ILSVRC/Data/CLS-LOC', 
+    #data_path='/workspace/dynn/data/ILSVRC/Data/CLS-LOC', 
     eval_data_path=None, 
     nb_classes=1000, 
     imagenet_default_mean_and_std=True, 

@@ -103,7 +103,7 @@ class ClassifierTrainingHelper:
             raise InvalidLossContributionModeException('Ca marche pas ton affaire')
 
         
-        return loss, things_of_interest
+        return loss*1e-4, things_of_interest
     
     def _compute_weighted_loss(self, p_exit_at_gate_list, loss_per_gate_list):
         P = torch.cat(p_exit_at_gate_list, dim = 1)
