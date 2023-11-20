@@ -2,10 +2,11 @@ class Namespace:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
-def get_args(EPOCH, BATCH_SIZE, OUTPUT_DIR,JEIDNN, CE_IC):
+def get_args(EPOCH, BATCH_SIZE, OUTPUT_DIR,JEIDNN, CE_IC, LR_JEIDNN):
     args = Namespace(batch_size=BATCH_SIZE, 
     epochs=EPOCH,
-    update_freq=1, 
+    update_freq=1,
+    jeidnn_lr=LR_JEIDNN,
     model='mobilenetV3_0x75_perceiver_t128', 
     classifier_type='cnn', 
     drop_path=0, 
@@ -63,7 +64,8 @@ def get_args(EPOCH, BATCH_SIZE, OUTPUT_DIR,JEIDNN, CE_IC):
     head_init_scale=1.0, 
     model_key='model|module|state_dict_ema', 
     model_prefix='', 
-    data_path='/workspace/DyLLM/dynn/data/ILSVRC/Data/CLS-LOC', 
+    #data_path='/workspace/DyLLM/dynn/data/ILSVRC/Data/CLS-LOC', 
+    data_path='/workspace/dynn/data/ILSVRC/Data/CLS-LOC', 
     eval_data_path=None, 
     nb_classes=1000, 
     imagenet_default_mean_and_std=True, 
