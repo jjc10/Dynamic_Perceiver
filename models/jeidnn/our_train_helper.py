@@ -17,7 +17,8 @@ def train_single_epoch(args, helper: LearningHelper, device, train_loader, epoch
           bilevel_batch_count=20):
     print('\nEpoch: %d' % epoch)
     helper.net.train()
-
+    print_freq = 50
+    total_num_batches = len(train_loader)
     metrics_dict = {}
     for batch_idx, (inputs, targets) in enumerate(train_loader):
         inputs, targets = inputs.to(device), targets.to(device)
@@ -43,7 +44,8 @@ def train_single_epoch(args, helper: LearningHelper, device, train_loader, epoch
                                           targets=targets, batch_size=batch_size,
                                           cost_per_exit=helper.net.normalized_cost_per_exit)
         metrics_of_batch['loss'] = (loss.item(), batch_size)
-
+        if batch_idx % print_freq == 0:
+            print(f"Epoch {epoch}. \tBatch {batch_idx}/{total_num_batches}. \tLoss {loss.item()}")
         # keep track of the average metrics
         metrics_dict = aggregate_metrics(metrics_of_batch, metrics_dict, gates_count=len(helper.net.gates))
 

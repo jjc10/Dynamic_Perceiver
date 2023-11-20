@@ -490,18 +490,24 @@ def auto_load_model(args, model, model_without_ddp, optimizer, loss_scaler, mode
         else:
             checkpoint = torch.load(args.resume, map_location='cpu')
         if 'model' in checkpoint:
-            model_without_ddp.load_state_dict(checkpoint['model'])
+            model_without_ddp.load_state_dict(checkpoint['model'], strict=True)
         elif 'state_dict' in checkpoint:
             model_without_ddp.load_state_dict(checkpoint['state_dict'])
         else:
             model_without_ddp.load_state_dict(checkpoint)
         print("Resume checkpoint %s" % args.resume)
         if 'optimizer' in checkpoint and 'epoch' in checkpoint:
-            optimizer.load_state_dict(checkpoint['optimizer'])
+            # skipping loading of optimizer since this caused issues.
+            # optimizer.load_state_dict(checkpoint['optimizer'])
+            # Attempt fix optimizer issue. Enowok
+            # for state in optimizer.state.values():
+            #     for k, v in state.items():
+            #         if isinstance(v, torch.Tensor):
+            #             state[k] = v.cuda()
             if not isinstance(checkpoint['epoch'], str): # does not support resuming with 'best', 'best-ema'
                 args.start_epoch = checkpoint['epoch'] + 1
-            else:
-                assert args.eval, 'Does not support resuming with checkpoint-best'
+            # else:
+            #     assert args.eval, 'Does not support resuming with checkpoint-best'
             if hasattr(args, 'model_ema') and args.model_ema:
                 if 'model_ema' in checkpoint.keys():
                     model_ema.ema.load_state_dict(checkpoint['model_ema'])
