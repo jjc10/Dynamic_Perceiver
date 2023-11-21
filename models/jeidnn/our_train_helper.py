@@ -17,6 +17,7 @@ def train_single_epoch(args, helper: LearningHelper, device, train_loader, epoch
           bilevel_batch_count=20):
     print('\nEpoch: %d' % epoch)
     helper.net.train()
+    print_freq = 50
 
     metrics_dict = {}
     for batch_idx, (inputs, targets) in enumerate(train_loader):
@@ -52,7 +53,8 @@ def train_single_epoch(args, helper: LearningHelper, device, train_loader, epoch
                 prefix_logger='train',
                 metrics_dict=metrics_dict, gates_count=len(helper.net.gates))
 
-
+        if batch_idx % print_freq == 0:
+            print(f"Ep epoch {epoch}: {batch_idx}/{len(train_loader)}")
         log_dict = log_dict
         mlflow.log_metrics(log_dict,
                             step=batch_idx +

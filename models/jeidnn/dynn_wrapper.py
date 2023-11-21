@@ -47,6 +47,24 @@ class DynnWrapper(torch.nn.Module):
         print('Successfully froze network: from {} to {} trainable params.'.format(
             total_num_parameters, num_trainable_params))
 
+    def unfreeze_backbone_freeze_gates(self):
+        model_parameters = filter(lambda p: p.requires_grad, self.net.parameters())
+        total_num_parameters = sum([np.prod(p.size()) for p in model_parameters])
+        # set everything to trainable
+        for param in self.net.parameters():
+            param.requires_grad = True
+
+        for gate in self.gates: # freeze gates
+            for param in gate.parameters():
+                param.requires_grad = False
+
+        trainable_parameters = filter(lambda p: p.requires_grad,
+                                      self.net.parameters())
+        num_trainable_params = sum(
+            [np.prod(p.size()) for p in trainable_parameters])
+        print('Successfully froze gates and unfroze backbone: from {} to {} trainable params.'.format(
+            total_num_parameters, num_trainable_params))
+
     def set_cost_per_exit(self, mult_add_at_exits: list[float] = [0.097629792, 0.181669488, 0.205988448, 0.264681648]):
         normalized_cost = torch.tensor(mult_add_at_exits) / mult_add_at_exits[-1]
         self.mult_add_at_exits = (torch.tensor(mult_add_at_exits) * 1e9).tolist()

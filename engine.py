@@ -11,6 +11,7 @@ from typing import Iterable, Optional
 import torch
 from timm.data import Mixup
 from timm.utils import accuracy, ModelEma
+import mlflow
 
 import utils
 
@@ -29,7 +30,7 @@ def train_one_epoch_earlyExit(model: torch.nn.Module, criterion: torch.nn.Module
                     with_kd=False,
                     T_kd=4.0,
                     alpha_kd=0.5,
-                    criterion_distill=None):
+                    criterion_distill=None, use_mlflow = False):
     model.train(True)
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
@@ -138,7 +139,17 @@ def train_one_epoch_earlyExit(model: torch.nn.Module, criterion: torch.nn.Module
 
         # print(str(metric_logger))
         # assert(0==1)
-
+        if use_mlflow: # do some logging
+            log_dict = {
+                'backbone/loss': loss_value,
+                # 'last_acc': class_acc_merge,
+                # 'acc1(att)': class_acc_att,
+                # 'acc2(cnn)':  class_acc_cnn,
+                'backbone/lr': max_lr
+            }
+            mlflow.log_metrics(log_dict,
+                           step=data_iter_step +
+                                (epoch * len(data_loader)))
         if log_writer is not None:
             log_writer.update(loss=loss_value, head="loss")
             # log_writer.update(class_acc_cnn=class_acc_cnn, head="loss")

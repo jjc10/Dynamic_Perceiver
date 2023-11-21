@@ -6,6 +6,9 @@
 # LICENSE file in the root directory of this source tree.
 
 import warnings
+
+import mlflow
+
 warnings.filterwarnings('ignore')
 
 import argparse
@@ -242,6 +245,8 @@ def get_args_parser():
                         help='lambda')
     parser.add_argument('--bilevel_epochs', type=int, default=5,
                         help='epochs for jeidnn training')
+    parser.add_argument('--jeidnn_e2e', type=str2bool, default=False,
+                        help='Train in jeidnn e2e mode')
 
     return parser
 
@@ -267,6 +272,67 @@ def train_jeidnn(wrapper, args, criterion, data_loader_train, val_loader, optimi
         val_metrics_dict, new_best_acc, _ = evaluate(best_acc, args, learning_helper, device, val_loader, epoch, mode='val', experiment_name='potato')
         set_from_validation(learning_helper, val_metrics_dict, account_subsequent=True)
         scheduler.step()
+
+def train_jeidnn_e2e(wrapper, args, criterion, data_loader_train, val_loader, backbone_optimizer,
+                     device, loss_scaler, model_ema, mixup_fn, num_training_steps_per_epoch,
+                     starting_epoch):
+    TOTAL_BACKBONE_EPOCHS = 302
+    setup_mlflow(f"jeidnn_{str(args.ce_ic_tradeoff)}_e2e", vars(args), "jeidnn_e2e_test")
+    wd_schedule_values = utils.cosine_scheduler(
+        args.weight_decay, args.weight_decay_end, TOTAL_BACKBONE_EPOCHS, num_training_steps_per_epoch)
+    lr_schedule_values = utils.cosine_scheduler(
+        args.lr, args.min_lr, TOTAL_BACKBONE_EPOCHS, num_training_steps_per_epoch,
+        warmup_epochs=args.warmup_epochs, warmup_steps=args.warmup_steps,
+    )
+    wrapper = wrapper.to(device)
+    parameters = wrapper.parameters()
+    jeidnn_optimizer = torch.optim.SGD(parameters,
+                                       lr=0.01,
+                                       momentum=0.9,
+                                       weight_decay=5e-4)
+    jeidnn_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(jeidnn_optimizer,
+                                                           eta_min=2e-4,
+                                                           T_max=args.bilevel_epochs)
+    criterion_func = torch.nn.CrossEntropyLoss # make this configurable.
+    learning_helper = LearningHelper(wrapper, jeidnn_optimizer, args, device, criterion_func)
+    best_acc = 0
+    epoch_split = [2, 1, 2] # starts at jeidnn then alternates.
+    jeidnn_instead_of_backbone = True
+    for ep_split in epoch_split:
+        if jeidnn_instead_of_backbone:
+            wrapper.freeze_backbone_except_classifiers_and_gates()
+            for epoch in range(ep_split):
+                print(f"JEIDNN training epoch {epoch} / {ep_split}")
+                train_single_epoch(args, learning_helper, device,
+                                   data_loader_train, epoch=starting_epoch + epoch, training_phase=TrainingPhase.CLASSIFIER,
+                                   bilevel_batch_count=200)
+                val_metrics_dict, new_best_acc, _ = evaluate(best_acc, args, learning_helper, device, val_loader, epoch, mode='val', experiment_name='potato')
+                set_from_validation(learning_helper, val_metrics_dict, account_subsequent=True)
+                jeidnn_scheduler.step()
+            jeidnn_instead_of_backbone = not jeidnn_instead_of_backbone
+        else:
+            # list(filter(lambda p: p.requires_grad, wrapper.parameters()))
+            # train backbone
+            wrapper.unfreeze_backbone_freeze_gates()
+            for epoch in range(ep_split):
+                print(f"Backbone training epoch {epoch} / {ep_split}")
+                train_stats = train_one_epoch_earlyExit(
+                    wrapper.net, criterion, data_loader_train, backbone_optimizer,
+                    device, starting_epoch + epoch, loss_scaler, args.clip_grad, model_ema, mixup_fn,
+                    start_steps=(starting_epoch + epoch) * num_training_steps_per_epoch,
+                    lr_schedule_values=lr_schedule_values, wd_schedule_values=wd_schedule_values,
+                    num_training_steps_per_epoch=num_training_steps_per_epoch, update_freq=args.update_freq,
+                    use_amp=args.use_amp,
+                    loss_cnn_factor = args.loss_cnn_factor,
+                    loss_att_factor = args.loss_att_factor,
+                    loss_merge_factor = args.loss_merge_factor,
+                    with_kd = args.with_kd,
+                    T_kd=args.T_kd,
+                    alpha_kd=args.alpha_kd,
+                    use_mlflow=True
+                )
+            jeidnn_instead_of_backbone = not jeidnn_instead_of_backbone
+    mlflow.end_run()
 
 def main(args):
     utils.init_distributed_mode(args)
@@ -486,6 +552,12 @@ def main(args):
         wrapper = DynnWrapper(model, args)
         return train_jeidnn(wrapper, args, criterion, data_loader_train, data_loader_val, optimizer,
                             device, loss_scaler, args.clip_grad)
+    if args.jeidnn_e2e:
+        print('Starting JEIDNN E2E training')
+        wrapper = DynnWrapper(model, args)
+        return train_jeidnn_e2e(wrapper, args, criterion, data_loader_train, data_loader_val, optimizer,
+                                device, loss_scaler,model_ema, mixup_fn, num_training_steps_per_epoch,
+                                300)
 
     print("Start training for %d epochs" % args.epochs)
     start_time = time.time()
