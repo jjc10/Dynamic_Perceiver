@@ -41,8 +41,9 @@ from models.dyn_perceiver_resnet import compute_flops
 import models
 
 from adaptive_inference import dynamic_evaluate
-
-
+from torch.utils.data.sampler import SubsetRandomSampler
+RANDOM_SEED = 42
+generator = torch.Generator().manual_seed(RANDOM_SEED)
 def str2bool(v):
     """
     Converts string to bool type; enables command line
@@ -296,9 +297,7 @@ def main(args):
     sampler_train = torch.utils.data.DistributedSampler(
         dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True, seed=args.seed,
     )
-    sampler_real_val = torch.utils.data.DistributedSampler(
-        dataset_real_val, num_replicas=num_tasks, rank=global_rank, shuffle=True, seed=args.seed,
-    )
+  
     print("Sampler_train = %s" % str(sampler_train))
     if args.dist_eval:
         if len(dataset_val) % num_tasks != 0:
@@ -320,16 +319,22 @@ def main(args):
         wandb_logger = utils.WandbLogger(args)
     else:
         wandb_logger = None
-
+    val_size = 50000
+    
+    train_indices, val_indices = torch.utils.data.random_split(dataset_train, [len(dataset_train) - val_size, val_size], generator=generator)
+    
+    train_sampler = SubsetRandomSampler(train_indices.indices)
+    valid_sampler = SubsetRandomSampler(val_indices.indices)
+    
     data_loader_train = torch.utils.data.DataLoader(
-        dataset_train, sampler=sampler_train,
+        dataset_train, sampler=train_sampler,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
     )
     data_loader_real_val = torch.utils.data.DataLoader(
-        dataset_real_val, sampler=sampler_real_val,
+        dataset_train, sampler=valid_sampler,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
