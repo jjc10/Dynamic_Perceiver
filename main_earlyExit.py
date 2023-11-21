@@ -248,7 +248,7 @@ def get_args_parser():
 
 def train_jeidnn(wrapper, args, criterion, data_loader_train, data_loader_val, data_loader_test, optimizer,
                  device, loss_scaler, model_ema):
-    setup_mlflow(f"jeidnn_{str(args.ce_ic_tradeoff)}_set_from_val", vars(args), "jeidnn_wed")
+    setup_mlflow(f"jeidnn_{str(args.ce_ic_tradeoff)}_working", vars(args), "jeidnn_wed")
     wrapper = wrapper.to(device)
     parameters = wrapper.parameters()
     optimizer = torch.optim.SGD(parameters,
