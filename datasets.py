@@ -7,13 +7,14 @@
 
 
 import os
+import torch
 from torchvision import datasets, transforms
 # from dataloader_hf import FireFlyerImageNet
 from timm.data.constants import \
     IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD, IMAGENET_INCEPTION_MEAN, IMAGENET_INCEPTION_STD
 from timm.data import create_transform
 
-def build_dataset(is_train, args):
+def build_dataset(is_train, args, real_val=False):
     transform = build_transform(is_train, args)
 
     print("Transform = ")
@@ -34,7 +35,17 @@ def build_dataset(is_train, args):
         print("reading from datapath", args.data_path)
         root = os.path.join(args.data_path, 'train' if is_train else 'val')
         dataset = datasets.ImageFolder(root, transform=transform)
+        total_size = len(dataset)
+        n_val = 50000
         nb_classes = 1000
+        #if is_train: # we want to cut the train to get a val loader
+            # real_val_set = torch.utils.data.Subset(dataset, range(n_val))  # take first 10%
+            # train_set = torch.utils.data.Subset(dataset, range(n_val, int(total_size/3))) 
+            # if real_val:
+            #     dataset = real_val_set
+            # else:
+            #     dataset = train_set
+            
     elif args.data_set == "image_folder":
         root = args.data_path if is_train else args.eval_data_path
         dataset = datasets.ImageFolder(root, transform=transform)

@@ -53,8 +53,8 @@ def log_aggregate_metrics_mlflow(prefix_logger, metrics_dict, gates_count):
 
 
 def setup_mlflow(run_name: str, cfg, experiment_name):
-    print(run_name)
     project = experiment_name
+    print(f"Setting up MLFlow with project {project} and run name {run_name}")
     mlruns_path = get_abs_path(["mlruns"])
     mlflow.set_tracking_uri(mlruns_path)
     mlflow.set_experiment(project)

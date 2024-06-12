@@ -17,7 +17,8 @@ def train_single_epoch(args, helper: LearningHelper, device, train_loader, epoch
           bilevel_batch_count=20):
     print('\nEpoch: %d' % epoch)
     helper.net.train()
-
+    print_freq = 50
+    total_num_batches = len(train_loader)
     metrics_dict = {}
     for batch_idx, (inputs, targets) in enumerate(train_loader):
         inputs, targets = inputs.to(device), targets.to(device)
@@ -43,7 +44,8 @@ def train_single_epoch(args, helper: LearningHelper, device, train_loader, epoch
                                           targets=targets, batch_size=batch_size,
                                           cost_per_exit=helper.net.normalized_cost_per_exit)
         metrics_of_batch['loss'] = (loss.item(), batch_size)
-
+        if batch_idx % print_freq == 0:
+            print(f"Epoch {epoch}. \tBatch {batch_idx}/{total_num_batches}. \tLoss {loss.item()}")
         # keep track of the average metrics
         metrics_dict = aggregate_metrics(metrics_of_batch, metrics_dict, gates_count=len(helper.net.gates))
 
@@ -67,10 +69,7 @@ def train_single_epoch(args, helper: LearningHelper, device, train_loader, epoch
 def evaluate(best_acc, args, helper: LearningHelper, device, init_loader, epoch, mode: str, experiment_name: str, store_results=False):
     helper.net.eval()
     metrics_dict = {}
-    if mode == 'test': # we should split the data and combine at the end
-        loaders = 12 #split_dataloader_in_n(init_loader, n=10)
-    else:
-        loaders = [init_loader]
+    loaders = [init_loader]
     metrics_dicts = []
     log_dicts_of_trials = {}
     average_trials_log_dict = {}
@@ -119,7 +118,7 @@ def evaluate(best_acc, args, helper: LearningHelper, device, init_loader, epoch,
             'epoch': epoch,
         }
         checkpoint_path = os.path.join(get_path_to_project_root(), 'jeidnn_exploration_checkpoint')
-        this_run_checkpoint_path = os.path.join(checkpoint_path, f'checkpoint_cifar100_{args.ce_ic_tradeoff}')
+        this_run_checkpoint_path = os.path.join(checkpoint_path, f'checkpoint_{args.data_set}_{args.ce_ic_tradeoff}')
         if not os.path.isdir(this_run_checkpoint_path):
             os.mkdir(this_run_checkpoint_path)
         torch.save(

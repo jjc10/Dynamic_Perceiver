@@ -21,7 +21,7 @@ import numpy as np
 class DynPerceiver(nn.Module):
     def __init__(self,
                 input_size: int=224,
-                num_classes:int=100,
+                num_classes:int=1000,
                 cnn_arch: str="mobilenet_v3_large",
                 num_SA_heads: list=[1,2,4,8],
                 num_latents: int=32,
@@ -339,6 +339,7 @@ class DynPerceiver(nn.Module):
         self.output_dir = output_dir
         self._init_parameters()
         x = torch.rand(2,3,224,224)
+        print(f"Assigning flops for image of size {list(x.shape[1:])}. Ensure this is the right size the dataloader returns.")
         self.forward_calc_flops(x)
         
 
@@ -756,11 +757,12 @@ class DynPerceiver(nn.Module):
         all_flops = [flops_early3/1e9, flops_early4/1e9, flops_early5/1e9, flops/1e9]
         print(all_flops)
         mul_adds = (torch.tensor(all_flops) / 2).tolist()
-        print('MUL ADDS FOR DYN PERCEIVER MOBILENET')
+        print('Computed flops for dyn perceiver mobilenet')
         print(mul_adds)
         print('------------------------------------')
         np.savetxt(f'{self.output_dir}/flops.txt', all_flops)
         np.savetxt(f'{self.output_dir}/muladds.txt', mul_adds)
+        self.flops = all_flops
         return y_early3, y_att, y_cnn, y_merge
 
 

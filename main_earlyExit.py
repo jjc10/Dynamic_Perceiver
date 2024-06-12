@@ -41,8 +41,9 @@ from models.dyn_perceiver_resnet import compute_flops
 import models
 
 from adaptive_inference import dynamic_evaluate
-
-
+from torch.utils.data.sampler import SubsetRandomSampler
+RANDOM_SEED = 42
+generator = torch.Generator().manual_seed(RANDOM_SEED)
 def str2bool(v):
     """
     Converts string to bool type; enables command line
@@ -119,7 +120,7 @@ def get_args_parser():
     parser.add_argument('--layer_decay', type=float, default=1.0)
     parser.add_argument('--min_lr', type=float, default=1e-6, metavar='LR',
                         help='lower lr bound for cyclic schedulers that hit 0 (1e-6)')
-    parser.add_argument('--warmup_epochs', type=int, default=20, metavar='N',
+    parser.add_argument('--warmup_epochs', type=int, default=0, metavar='N',
                         help='epochs to warmup LR, if scheduler supports')
     parser.add_argument('--warmup_steps', type=int, default=-1, metavar='N',
                         help='num of steps to warmup LR, will overload warmup_epochs if set > 0')
@@ -176,7 +177,7 @@ def get_args_parser():
     parser.add_argument('--model_prefix', default='', type=str)
 
     # Dataset parameters
-    parser.add_argument('--data_path', default='/datasets01/imagenet_full_size/061417/', type=str,
+    parser.add_argument('--data_path', default='/workspace/DyLLM/dynn/data/ILSVRC/Data/CLS-LOC', type=str,
                         help='dataset path')
     parser.add_argument('--eval_data_path', default=None, type=str,
                         help='dataset path for evaluation')
@@ -245,13 +246,13 @@ def get_args_parser():
 
     return parser
 
-def train_jeidnn(wrapper, args, criterion, data_loader_train, val_loader, optimizer,
+def train_jeidnn(wrapper, args, criterion, data_loader_train, data_loader_val, data_loader_test, optimizer,
                  device, loss_scaler, model_ema):
-    setup_mlflow(f"jeidnn_{str(args.ce_ic_tradeoff)}_set_from_val", vars(args), "jeidnn_wed")
+    setup_mlflow(f"jeidnn_{str(args.ce_ic_tradeoff)}_working", vars(args), "jeidnn_wed")
     wrapper = wrapper.to(device)
     parameters = wrapper.parameters()
     optimizer = torch.optim.SGD(parameters,
-                      lr=0.01,
+                      lr=args.jeidnn_lr,
                       momentum=0.9,
                       weight_decay=5e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,
@@ -263,9 +264,12 @@ def train_jeidnn(wrapper, args, criterion, data_loader_train, val_loader, optimi
     for epoch in range(args.bilevel_epochs):
         train_single_epoch(args, learning_helper, device,
                            data_loader_train, epoch=epoch, training_phase=TrainingPhase.CLASSIFIER,
-                           bilevel_batch_count=200)
-        val_metrics_dict, new_best_acc, _ = evaluate(best_acc, args, learning_helper, device, val_loader, epoch, mode='val', experiment_name='potato')
+                           bilevel_batch_count=args.bilevel_switch)
+        val_metrics_dict, new_best_acc, _ = evaluate(best_acc, args, learning_helper, device, data_loader_val, epoch, mode='val', experiment_name='potato')
+        if new_best_acc > best_acc:
+            best_acc = new_best_acc
         set_from_validation(learning_helper, val_metrics_dict, account_subsequent=True)
+        test_metrics_dict, _, _ = evaluate(best_acc, args, learning_helper, device, data_loader_test, epoch, mode='test', experiment_name='potato')
         scheduler.step()
 
 def main(args):
@@ -280,6 +284,7 @@ def main(args):
     cudnn.benchmark = True
 
     dataset_train, args.nb_classes = build_dataset(is_train=True, args=args)
+    dataset_real_val, args.nb_classes = build_dataset(is_train=True, args=args, real_val=True)
     if args.disable_eval:
         args.dist_eval = False
         dataset_val = None
@@ -292,6 +297,7 @@ def main(args):
     sampler_train = torch.utils.data.DistributedSampler(
         dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True, seed=args.seed,
     )
+  
     print("Sampler_train = %s" % str(sampler_train))
     if args.dist_eval:
         if len(dataset_val) % num_tasks != 0:
@@ -313,15 +319,28 @@ def main(args):
         wandb_logger = utils.WandbLogger(args)
     else:
         wandb_logger = None
-
+    val_size = 50000
+    
+    train_indices, val_indices = torch.utils.data.random_split(dataset_train, [len(dataset_train) - val_size, val_size], generator=generator)
+    
+    train_sampler = SubsetRandomSampler(train_indices.indices)
+    valid_sampler = SubsetRandomSampler(val_indices.indices)
+    
     data_loader_train = torch.utils.data.DataLoader(
-        dataset_train, sampler=sampler_train,
+        dataset_train, sampler=train_sampler,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
     )
-
+    data_loader_real_val = torch.utils.data.DataLoader(
+        dataset_train, sampler=valid_sampler,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        pin_memory=args.pin_mem,
+        drop_last=True,
+    )
+    
     if dataset_val is not None:
         data_loader_val = torch.utils.data.DataLoader(
             dataset_val, sampler=sampler_val,
@@ -484,7 +503,7 @@ def main(args):
     if args.jeidnn:
         print('Starting JEIDNN training')
         wrapper = DynnWrapper(model, args)
-        return train_jeidnn(wrapper, args, criterion, data_loader_train, data_loader_val, optimizer,
+        return train_jeidnn(wrapper, args, criterion, data_loader_train, data_loader_real_val, data_loader_val, optimizer,
                             device, loss_scaler, args.clip_grad)
 
     print("Start training for %d epochs" % args.epochs)
